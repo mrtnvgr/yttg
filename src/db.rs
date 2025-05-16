@@ -9,27 +9,27 @@ use std::sync::LazyLock;
 use teloxide::types::UserId;
 use url::Url;
 
-static CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| WORKDIR.join("config.json"));
+static DB_PATH: LazyLock<PathBuf> = LazyLock::new(|| WORKDIR.join("db.json"));
 
 #[derive(Serialize, Deserialize, Default)]
-pub struct Config {
+pub struct DB {
     pub users: HashMap<UserId, UserData>,
 }
 
-impl Config {
+impl DB {
     pub fn load_or_init() -> Self {
         #[allow(clippy::option_if_let_else)]
-        if let Ok(path) = File::open(CONFIG_PATH.as_path()) {
+        if let Ok(path) = File::open(DB_PATH.as_path()) {
             let reader = BufReader::new(path);
-            serde_json::from_reader(reader).expect("Failed to deserialize config")
+            serde_json::from_reader(reader).expect("Failed to deserialize db")
         } else {
             Self::default()
         }
     }
 
     pub fn save(&self) {
-        if let Err(err) = File::create(CONFIG_PATH.as_path()).map(|x| serde_json::to_writer(x, self)) {
-            log::error!("Config saving error: {err}");
+        if let Err(err) = File::create(DB_PATH.as_path()).map(|x| serde_json::to_writer(x, self)) {
+            log::error!("DB saving error: {err}");
         }
     }
 }

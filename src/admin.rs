@@ -1,4 +1,4 @@
-use crate::config::{Config, UserData};
+use crate::db::{DB, UserData};
 use crate::misc::is_unknown_user;
 use std::env::var;
 use std::string::ToString;
@@ -34,17 +34,11 @@ impl AdminCommands {
         Ok(())
     }
 
-    pub async fn add_user(
-        bot: Bot,
-        msg: Message,
-        config: Arc<Mutex<Config>>,
-        user_id: String,
-        alias: String,
-    ) -> ResponseResult<()> {
+    pub async fn add_user(bot: Bot, msg: Message, db: Arc<Mutex<DB>>, user_id: String, alias: String) -> ResponseResult<()> {
         if let Some(user_id) = get_user_id_from_string(&bot, &msg, user_id).await? {
-            if is_unknown_user(&config, user_id).await {
-                config.lock().await.users.insert(user_id, UserData::aliased(alias));
-                config.lock().await.save();
+            if is_unknown_user(&db, user_id).await {
+                db.lock().await.users.insert(user_id, UserData::aliased(alias));
+                db.lock().await.save();
 
                 let text = "Пользователь добавлен :)";
                 bot.send_message(msg.chat.id, text).reply_to(msg.id).await?;
@@ -54,11 +48,11 @@ impl AdminCommands {
         Ok(())
     }
 
-    pub async fn remove_user(bot: Bot, msg: Message, config: Arc<Mutex<Config>>, user_id: String) -> ResponseResult<()> {
+    pub async fn remove_user(bot: Bot, msg: Message, db: Arc<Mutex<DB>>, user_id: String) -> ResponseResult<()> {
         if let Some(user_id) = get_user_id_from_string(&bot, &msg, user_id).await? {
-            if !is_unknown_user(&config, user_id).await {
-                config.lock().await.users.remove(&user_id);
-                config.lock().await.save();
+            if !is_unknown_user(&db, user_id).await {
+                db.lock().await.users.remove(&user_id);
+                db.lock().await.save();
 
                 let text = "Пользователь удалён :(";
                 bot.send_message(msg.chat.id, text).reply_to(msg.id).await?;
@@ -68,10 +62,10 @@ impl AdminCommands {
         Ok(())
     }
 
-    pub async fn list_users(bot: Bot, msg: Message, config: Arc<Mutex<Config>>) -> ResponseResult<()> {
+    pub async fn list_users(bot: Bot, msg: Message, db: Arc<Mutex<DB>>) -> ResponseResult<()> {
         let format_user = |(id, data): (&UserId, &UserData)| format!("{} ({id}): [{}]", data.alias, data.downloads);
 
-        let mut users: Vec<String> = config.lock().await.users.iter().map(format_user).collect();
+        let mut users: Vec<String> = db.lock().await.users.iter().map(format_user).collect();
 
         let heading = if users.is_empty() {
             "Пользователей нету! :0"

@@ -1,11 +1,11 @@
 mod admin;
-mod config;
+mod db;
 mod misc;
 mod strings;
 mod ytdlp;
 
 use admin::{AdminCommands, is_admin_texting};
-use config::Config;
+use db::DB;
 use dptree::case;
 use misc::log_error;
 use std::env::var;
@@ -36,7 +36,7 @@ async fn main() {
     let ytdlp = Arc::new(Mutex::new(Downloader::new().await));
     log::info!("...done");
 
-    let config = Arc::new(Mutex::new(Config::load_or_init()));
+    let db = Arc::new(Mutex::new(DB::load_or_init()));
 
     let handler = dptree::entry()
         .branch(
@@ -54,19 +54,19 @@ async fn main() {
     tokio::spawn(ytdlp::update_ytdlp(ytdlp.clone()));
 
     Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![ytdlp, config])
+        .dependencies(dptree::deps![ytdlp, db])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
         .await;
 }
 
-async fn receive_download_request(bot: Bot, msg: Message, config: Arc<Mutex<Config>>) -> ResponseResult<()> {
+async fn receive_download_request(bot: Bot, msg: Message, db: Arc<Mutex<DB>>) -> ResponseResult<()> {
     let Some(ref user_id) = msg.from.as_ref().map(|x| x.id) else {
         return Ok(());
     };
 
-    if misc::is_unknown_user(&config, *user_id).await {
+    if misc::is_unknown_user(&db, *user_id).await {
         return Ok(());
     };
 
@@ -76,7 +76,7 @@ async fn receive_download_request(bot: Bot, msg: Message, config: Arc<Mutex<Conf
         return Ok(());
     };
 
-    if let Some(userdata) = config.lock().await.users.get_mut(user_id) {
+    if let Some(userdata) = db.lock().await.users.get_mut(user_id) {
         userdata.url = Some(url);
     };
 
@@ -92,7 +92,7 @@ async fn receive_request_format(
     bot: Bot,
     q: CallbackQuery,
     ytdlp: Arc<Mutex<Downloader>>,
-    config: Arc<Mutex<Config>>,
+    db: Arc<Mutex<DB>>,
 ) -> ResponseResult<()> {
     bot.answer_callback_query(&q.id).await?;
 
@@ -106,7 +106,7 @@ async fn receive_request_format(
         return Ok(());
     };
 
-    let Some(url) = config.lock().await.users.get_mut(&q.from.id).and_then(|x| x.url.take()) else {
+    let Some(url) = db.lock().await.users.get_mut(&q.from.id).and_then(|x| x.url.take()) else {
         bot.edit_message_text(chat_id, request.id, ERROR_BROKEN_SESSION).await?;
         return Ok(());
     };
@@ -121,14 +121,14 @@ async fn receive_request_format(
         return Ok(());
     };
 
-    if let Some(userdata) = config.lock().await.users.get_mut(&q.from.id) {
+    if let Some(userdata) = db.lock().await.users.get_mut(&q.from.id) {
         if matches!(request.format, Format::AudioOnly) {
             userdata.downloads.audios += 1;
         } else {
             userdata.downloads.videos += 1;
         }
     };
-    config.lock().await.save();
+    db.lock().await.save();
 
     let media = InputMedia::from_format(request.format, &downloaded_media);
 

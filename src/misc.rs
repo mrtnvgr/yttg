@@ -1,11 +1,11 @@
-use crate::config::Config;
+use crate::db::DB;
 use std::fmt::Debug;
 use std::sync::Arc;
 use teloxide::types::UserId;
 use tokio::sync::Mutex;
 
-pub async fn is_unknown_user(config: &Arc<Mutex<Config>>, user_id: UserId) -> bool {
-    !config.lock().await.users.contains_key(&user_id)
+pub async fn is_unknown_user(db: &Arc<Mutex<DB>>, user_id: UserId) -> bool {
+    !db.lock().await.users.contains_key(&user_id)
 }
 
 pub fn log_error<T, E>(x: Result<T, E>) -> Result<T, E>
