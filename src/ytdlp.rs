@@ -1,13 +1,13 @@
 use crate::WORKDIR;
 use crate::misc::log_error;
-use crate::strings::{AUDIO_FORMAT, FULLHD_FORMAT, HD_FORMAT, LOWRES_FORMAT};
+use crate::strings::Language;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use teloxide::types::InlineKeyboardButton;
 use teloxide::types::MessageId;
-use teloxide::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 use teloxide::types::{InputFile, InputMedia, InputMediaAudio, InputMediaVideo};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -71,12 +71,13 @@ pub struct DownloadedMedia {
 pub struct DownloadRequest {
     pub id: MessageId,
     pub format: Format,
+    pub language: Language,
 }
 
 impl From<DownloadRequest> for InlineKeyboardButton {
-    fn from(value: DownloadRequest) -> Self {
-        let format = value.format.to_string();
-        let callback = serde_json::to_string(&value).expect("Failed to serialize Download");
+    fn from(request: DownloadRequest) -> Self {
+        let format = request.format.as_str(request.language);
+        let callback = serde_json::to_string(&request).expect("Failed to serialize Download");
         Self::callback(format, callback)
     }
 }
@@ -108,31 +109,9 @@ impl From<Format> for AudioQuality {
     }
 }
 
-impl Display for Format {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let text = match self {
-            Self::FullHD => FULLHD_FORMAT,
-            Self::HD => HD_FORMAT,
-            Self::LowRes => LOWRES_FORMAT,
-            Self::AudioOnly => AUDIO_FORMAT,
-        };
-
-        write!(f, "{text}")
-    }
-}
-
 impl Format {
-    pub fn get_buttons(request_id: MessageId) -> InlineKeyboardMarkup {
-        let video_row = vec![Self::FullHD, Self::HD, Self::LowRes];
-        let audio_row = vec![Self::AudioOnly];
-
-        let buttons = vec![video_row, audio_row].into_iter().map(|x| {
-            x.into_iter()
-                .map(|format| DownloadRequest { id: request_id, format })
-                .map(InlineKeyboardButton::from)
-        });
-
-        InlineKeyboardMarkup::new(buttons)
+    pub fn buttons() -> Vec<Vec<Self>> {
+        vec![vec![Self::FullHD], vec![Self::HD], vec![Self::LowRes], vec![Self::AudioOnly]]
     }
 }
 
