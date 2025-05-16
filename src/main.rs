@@ -128,6 +128,7 @@ async fn receive_request_format(
             userdata.downloads.videos += 1;
         }
     };
+    config.lock().await.save();
 
     let media = InputMedia::from_format(request.format, &downloaded_media);
 
