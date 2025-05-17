@@ -22,9 +22,14 @@ pub struct Downloader {
 
 impl Downloader {
     pub async fn new() -> Self {
-        let workdir = WORKDIR.as_path();
-        std::fs::create_dir_all(workdir).expect("Failed to create a directory for yt-dlp");
-        let mut inner = Youtube::with_new_binaries(workdir, workdir)
+        let workdir = WORKDIR.clone();
+
+        tokio::fs::create_dir_all(&workdir)
+            .await
+            .expect("Failed to create a directory for yt-dlp");
+
+        // TODO: https://github.com/boul2gom/yt-dlp/issues/47
+        let mut inner = Youtube::with_new_binaries(&workdir, &workdir)
             .await
             .expect("Failed to init yt-dlp");
         inner.with_timeout(Duration::from_secs(10 * 60));
