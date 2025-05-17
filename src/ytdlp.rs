@@ -33,6 +33,9 @@ impl Downloader {
             .expect("Failed to init yt-dlp");
         inner.with_timeout(Duration::from_secs(10 * 60));
 
+        inner.download_cache = None;
+        inner.cache = None;
+
         let _ = inner.update_downloader().await;
 
         Self { inner }
