@@ -1,5 +1,6 @@
 /target
+cache
 setup.sh
 yt-dlp
 ffmpeg
-config.json
+db.json
