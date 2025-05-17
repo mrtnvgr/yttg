@@ -34,7 +34,9 @@ impl AdminCommands {
         Ok(())
     }
 
-    pub async fn add_user(bot: Bot, msg: Message, db: Arc<Mutex<DB>>, user_id: String, alias: String) -> ResponseResult<()> {
+    pub async fn add_user(bot: Bot, msg: Message, db: Arc<Mutex<DB>>, data: (String, String)) -> ResponseResult<()> {
+        let (user_id, alias) = data;
+
         if let Some(user_id) = get_user_id_from_string(&bot, &msg, user_id).await? {
             if is_unknown_user(&db, user_id).await {
                 db.lock().await.users.insert(user_id, UserData::aliased(alias));
