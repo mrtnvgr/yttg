@@ -88,11 +88,7 @@ async fn receive_download_request(bot: Bot, msg: Message, db: Arc<Mutex<DB>>) ->
 
     let buttons = Format::buttons().into_iter().map(|x| {
         x.into_iter()
-            .map(|format| DownloadRequest {
-                id: msg.id,
-                format,
-                language,
-            })
+            .map(|format| DownloadRequest { format, language })
             .map(InlineKeyboardButton::from)
     });
 
@@ -115,21 +111,21 @@ async fn receive_request_format(
     bot.answer_callback_query(&q.id).await?;
 
     let Some(chat_id) = q.chat_id() else { return Ok(()) };
+    let Some(message_id) = q.message.map(|x| x.id()) else {
+        return Ok(());
+    };
 
     let language: Language = q.from.language_code.into();
 
     let Some(request) = q.data.and_then(|x| serde_json::from_str::<DownloadRequest>(&x).ok()) else {
-        if let Some(request_message) = q.message {
-            let id = request_message.id();
-            let message = Response::ErrorBrokenSession.as_str(language);
-            bot.edit_message_text(chat_id, id, message).await?;
-        }
+        let message = Response::ErrorBrokenSession.as_str(language);
+        bot.edit_message_text(chat_id, message_id, message).await?;
         return Ok(());
     };
 
     let Some(url) = db.lock().await.users.get_mut(&q.from.id).and_then(|x| x.url.take()) else {
         let message = Response::ErrorBrokenSession.as_str(language);
-        bot.edit_message_text(chat_id, request.id, message).await?;
+        bot.edit_message_text(chat_id, message_id, message).await?;
         return Ok(());
     };
 
@@ -138,11 +134,11 @@ async fn receive_request_format(
     log::info!("@{username}: {url} ({format})");
 
     let message = Response::PleaseWaitForTheMedia.as_str(language);
-    bot.edit_message_text(chat_id, request.id, message).await?;
+    bot.edit_message_text(chat_id, message_id, message).await?;
 
     let Some(downloaded_media) = ytdlp.lock().await.download(url, request.format).await else {
         let message = Response::ErrorFailedToDownload.as_str(language);
-        bot.edit_message_text(chat_id, request.id, message).await?;
+        bot.edit_message_text(chat_id, message_id, message).await?;
         return Ok(());
     };
 
@@ -157,9 +153,9 @@ async fn receive_request_format(
 
     let media = InputMedia::from_format(request.format, &downloaded_media);
 
-    if log_error(bot.edit_message_media(chat_id, request.id, media).await).is_err() {
+    if log_error(bot.edit_message_media(chat_id, message_id, media).await).is_err() {
         let message = Response::ErrorFailedToDownload.as_str(language);
-        bot.edit_message_text(chat_id, request.id, message).await?;
+        bot.edit_message_text(chat_id, message_id, message).await?;
     };
 
     // The media path can be accessed, because we downloaded it there

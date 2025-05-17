@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use teloxide::types::InlineKeyboardButton;
-use teloxide::types::MessageId;
 use teloxide::types::{InputFile, InputMedia, InputMediaAudio, InputMediaVideo};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
@@ -74,7 +73,6 @@ pub struct DownloadedMedia {
 
 #[derive(Serialize, Deserialize)]
 pub struct DownloadRequest {
-    pub id: MessageId,
     pub format: Format,
     pub language: Language,
 }
@@ -82,8 +80,8 @@ pub struct DownloadRequest {
 impl From<DownloadRequest> for InlineKeyboardButton {
     fn from(request: DownloadRequest) -> Self {
         let format = request.format.as_str(request.language);
-        let callback = serde_json::to_string(&request).expect("Failed to serialize Download");
-        Self::callback(format, callback)
+        let data = serde_json::to_string(&request).expect("Failed to serialize Download");
+        Self::callback(format, data)
     }
 }
 
